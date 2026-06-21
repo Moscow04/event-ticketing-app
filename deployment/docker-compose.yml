@@ -11,7 +11,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql
+      - ../backend/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
@@ -22,7 +22,7 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ../backend
       dockerfile: Dockerfile
     container_name: eventtix-api
     restart: unless-stopped
@@ -47,7 +47,7 @@ services:
 
   frontend:
     build:
-      context: ./frontend
+      context: ../frontend
       dockerfile: Dockerfile
     container_name: eventtix-web
     restart: unless-stopped
