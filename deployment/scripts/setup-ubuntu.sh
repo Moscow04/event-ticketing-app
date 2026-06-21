@@ -17,20 +17,33 @@ git clone --depth 1 "${REPO_URL}" "${APP_DIR}" 2>/dev/null || {
 }
 
 cd "${APP_DIR}"
-echo ""
-echo "============================================"
-echo "  IMPORTANT: Edit .env file first!"
-echo "============================================"
-echo ""
-echo "  Run:  nano ${APP_DIR}/.env"
-echo ""
-echo "  Set strong values for:"
-echo "    DB_PASSWORD"
-echo "    JWT_SECRET"
-echo "    DOMAIN (your domain without https)"
-echo ""
-echo "  Then run:  sudo bash ${APP_DIR}/deployment/scripts/deploy.sh ${DOMAIN}"
-echo ""
-echo "  Or run all at once if .env is ready:"
-echo "    sudo DOMAIN=${DOMAIN} bash ${APP_DIR}/deployment/scripts/deploy.sh ${DOMAIN}"
-echo "============================================"
+
+# Prompt for domain if not provided
+if [ -z "${DOMAIN}" ]; then
+    read -rp "Enter your domain (e.g. event.yourdomain.com): " DOMAIN
+fi
+
+# Generate .env if it doesn't exist
+if [ ! -f "${APP_DIR}/.env" ]; then
+    DB_PASS=$(openssl rand -base64 32)
+    JWT_SECRET=$(openssl rand -hex 64)
+
+    cat > "${APP_DIR}/.env" << EOF
+NODE_ENV=production
+PORT=5000
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=event_ticketing
+DB_USER=postgres
+DB_PASSWORD=${DB_PASS}
+JWT_SECRET=${JWT_SECRET}
+JWT_EXPIRES_IN=7d
+CORS_ORIGIN=https://${DOMAIN}
+ADMIN_EMAIL=admin@eventtix.com
+ADMIN_PASSWORD=Admin@\$(openssl rand -base64 12)
+EOF
+    chmod 600 "${APP_DIR}/.env"
+    echo "Created .env with auto-generated secrets"
+fi
+
+bash "${APP_DIR}/deployment/scripts/deploy.sh" "${DOMAIN}"

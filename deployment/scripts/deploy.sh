@@ -90,37 +90,11 @@ upstream eventtix_frontend {
 server {
     listen 80;
     server_name DOMAIN_PLACEHOLDER www.DOMAIN_PLACEHOLDER;
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name DOMAIN_PLACEHOLDER www.DOMAIN_PLACEHOLDER;
-
-    ssl_certificate /etc/letsencrypt/live/DOMAIN_PLACEHOLDER/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/DOMAIN_PLACEHOLDER/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-    ssl_prefer_server_ciphers on;
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 10m;
-
-    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
-    add_header X-Content-Type-Options nosniff;
-    add_header X-Frame-Options DENY;
-    add_header X-XSS-Protection "1; mode=block";
-    add_header Referrer-Policy strict-origin-when-cross-origin;
 
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript image/svg+xml;
     gzip_min_length 1000;
     gzip_comp_level 6;
-
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
-        proxy_pass http://eventtix_frontend;
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
 
     location /api/ {
         proxy_pass http://eventtix_backend;
@@ -143,8 +117,6 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
     }
 
     location ~ /\. { deny all; access_log off; log_not_found off; }
@@ -153,8 +125,6 @@ NGINX
 
     if [ -n "${domain}" ]; then
         sed -i "s/DOMAIN_PLACEHOLDER/${domain}/g" "${NGINX_CONF}"
-    else
-        sed -i "s/DOMAIN_PLACEHOLDER/yourdomain.com/g" "${NGINX_CONF}"
     fi
 
     rm -f /etc/nginx/sites-enabled/default
@@ -171,16 +141,27 @@ setup_ssl() {
     fi
 
     log "Obtaining SSL certificate for ${domain}..."
-    certbot --nginx -d "${domain}" -d "www.${domain}" \
+    certbot --nginx -d "${domain}" \
         --non-interactive --agree-tos --email "admin@${domain}" || {
         warn "SSL cert failed — you can run it manually: certbot --nginx -d ${domain}"
     }
 }
 
 deploy_containers() {
+    local domain="${1:-}"
     log "Deploying Docker containers..."
     cd "${APP_DIR}"
     detect_compose
+
+    # Set CORS origin from domain or IP
+    if [ -n "${domain}" ]; then
+        if echo "${domain}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+            CORS_ORIGIN="http://${domain}"
+        else
+            CORS_ORIGIN="https://${domain}"
+        fi
+        export CORS_ORIGIN
+    fi
 
     cp "${ENV_FILE}" "${APP_DIR}/backend/.env"
 
@@ -250,7 +231,7 @@ main() {
     install_deps
     setup_app
     setup_firewall
-    deploy_containers
+    deploy_containers "${domain}"
     configure_nginx "${domain}"
     setup_ssl "${domain}"
     print_summary "${domain}"
