@@ -28,6 +28,7 @@ if [ ! -f "${APP_DIR}/.env" ]; then
     DB_PASS=$(openssl rand -base64 32)
     JWT_SECRET=$(openssl rand -hex 64)
 
+    ADMIN_PASS="Admin@$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c16)"
     cat > "${APP_DIR}/.env" << EOF
 NODE_ENV=production
 PORT=5000
@@ -40,7 +41,7 @@ JWT_SECRET=${JWT_SECRET}
 JWT_EXPIRES_IN=7d
 CORS_ORIGIN=https://${DOMAIN}
 ADMIN_EMAIL=admin@eventtix.com
-ADMIN_PASSWORD=Admin@\$(openssl rand -base64 12)
+ADMIN_PASSWORD=${ADMIN_PASS}
 EOF
     chmod 600 "${APP_DIR}/.env"
     echo "Created .env with auto-generated secrets"
