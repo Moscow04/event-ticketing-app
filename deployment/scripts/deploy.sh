@@ -6,6 +6,21 @@ REPO_URL="https://github.com/Moscow04/event-ticketing-app.git"
 BRANCH="main"
 ENV_FILE="${APP_DIR}/.env"
 
+# Detect Docker Compose command
+DOCKER_COMPOSE=""
+detect_compose() {
+    if [ -n "${DOCKER_COMPOSE:-}" ]; then return; fi
+    if command -v docker-compose &>/dev/null; then
+        DOCKER_COMPOSE="docker-compose"
+    elif docker compose version &>/dev/null; then
+        DOCKER_COMPOSE="docker compose"
+    else
+        curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m)" -o /usr/local/bin/docker-compose
+        chmod +x /usr/local/bin/docker-compose
+        DOCKER_COMPOSE="docker-compose"
+    fi
+}
+
 log()  { echo -e "\e[1;32m[INFO]\e[0m $*"; }
 err()  { echo -e "\e[1;31m[ERROR]\e[0m $*" >&2; }
 warn() { echo -e "\e[1;33m[WARN]\e[0m $*"; }
@@ -32,10 +47,7 @@ install_deps() {
         systemctl enable --now docker
     fi
 
-    if ! command -v docker-compose &>/dev/null && ! docker compose version &>/dev/null; then
-        curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m)" -o /usr/local/bin/docker-compose
-        chmod +x /usr/local/bin/docker-compose
-    fi
+    detect_compose
 }
 
 setup_app() {
@@ -168,6 +180,7 @@ setup_ssl() {
 deploy_containers() {
     log "Deploying Docker containers..."
     cd "${APP_DIR}"
+    detect_compose
 
     cp "${ENV_FILE}" "${APP_DIR}/backend/.env"
 
@@ -175,8 +188,8 @@ deploy_containers() {
     source "${ENV_FILE}"
     set +a
 
-    docker-compose -f deployment/docker-compose.yml down --remove-orphans || true
-    docker-compose -f deployment/docker-compose.yml up -d --build
+    ${DOCKER_COMPOSE} -f deployment/docker-compose.yml down --remove-orphans || true
+    ${DOCKER_COMPOSE} -f deployment/docker-compose.yml up -d --build
 
     # Wait for backend to be ready
     for i in $(seq 1 30); do
