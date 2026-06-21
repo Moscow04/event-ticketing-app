@@ -17,7 +17,8 @@ DOMAIN="${1:-}"
 
 # Must be root
 if [ "$(id -u)" -ne 0 ]; then
-    echo "ERROR: Run with sudo: curl -fsSL https://git.io/eventtix-setup | sudo bash"
+    echo "ERROR: Run with sudo:"
+    echo "  curl -fsSL https://raw.githubusercontent.com/Moscow04/event-ticketing-app/main/deployment/scripts/setup-ubuntu.sh | sudo bash"
     exit 1
 fi
 
